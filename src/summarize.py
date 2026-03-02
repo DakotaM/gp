@@ -100,7 +100,9 @@ def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text
-        except anthropic.OverloadedError:
+        except Exception as e:
+            if "529" not in str(e) and "overloaded" not in str(e).lower():
+                raise
             if attempt < 4:
                 wait = 60 * (attempt + 1)
                 print(f"  API overloaded, retrying in {wait}s...")
