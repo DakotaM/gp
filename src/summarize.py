@@ -111,30 +111,38 @@ def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
     return response.content[0].text
 
 
-def generate_recommendations(all_summaries: list) -> str:
-    themes_block = "\n\n".join(
-        f"**{s['podcast']} — {s['title']}**\n{s['summary'][:600]}"
-        for s in all_summaries
+def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
+    import time
+    duration_min = episode.get("duration", 0) // 60
+    duration_str = f"{duration_min} min" if duration_min else "Unknown length"
+
+    transcript_text = episode.get("transcript") or (
+        "No transcript available. Base your key moments on the description only, "
+        "and note that timestamps are estimated."
     )
 
-    response = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=800,
-        messages=[
-            {"role": "user", "content": RECOMMENDATIONS_PROMPT.format(themes=themes_block)}
-        ],
+    prompt = EPISODE_PROMPT.format(
+        podcast=episode["podcast"],
+        title=episode["title"],
+        date=_format_date(episode.get("date_published", 0)),
+        duration=duration_str,
+        description=(episode.get("description") or "")[:2000],
+        transcript=transcript_text[:40000],
+        feedback=feedback,
     )
-    return response.content[0].text
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _format_date(unix_ts: int) -> str:
-    if not unix_ts:
-        return "Unknown date"
-    try:
-        return datetime.utcfromtimestamp(unix_ts).strftime("%B %d, %Y")
-    except Exception:
-        return "Unknown date"
+    for attempt in range(5):
+        try:
+            response = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+        except Exception as e:
+            if "overloaded" in str(e).lower() and attempt < 4:
+                wait = 30 * (attempt + 1)
+                print(f"  API overloaded, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
