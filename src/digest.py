@@ -98,6 +98,8 @@ def main():
             "summary": summary,
         })
         print(f"  ✓ Posted")
+        time.sleep(10)  # pace requests to avoid overload
+        
 
     # -------------------------------------------------------------------------
     # Step 5: Post recommendations
