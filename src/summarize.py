@@ -136,5 +136,18 @@ def _format_date(unix_ts: int) -> str:
         return "Unknown date"
     try:
         return datetime.utcfromtimestamp(unix_ts).strftime("%B %d, %Y")
-    except Exception:
-        return "Unknown date"
+    for attempt in range(5):
+        try:
+            response = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+        except anthropic.OverloadedError:
+            if attempt < 4:
+                wait = 60 * (attempt + 1)
+                print(f"  API overloaded, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
