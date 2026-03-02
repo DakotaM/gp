@@ -1,12 +1,9 @@
 import anthropic
 import os
+import time
 from datetime import datetime
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-# ---------------------------------------------------------------------------
-# Episode summary prompt
-# ---------------------------------------------------------------------------
 
 EPISODE_PROMPT = """\
 You are writing a weekly podcast digest for a VC fund manager who follows AI, \
@@ -59,10 +56,6 @@ Reader feedback from last week to incorporate:
 Write the digest entry now.
 """
 
-# ---------------------------------------------------------------------------
-# Recommendations prompt
-# ---------------------------------------------------------------------------
-
 RECOMMENDATIONS_PROMPT = """\
 Based on the weekly themes gathered from the podcasts below, recommend 2–3 additional \
 pieces of content the reader should check out this week. These can be essays, newsletters, \
@@ -76,13 +69,9 @@ Weekly themes:
 {themes}
 
 Format each as:
-• **[Title / Source / Author]** — One sentence on why it's relevant this week and where to find it.
+- **[Title / Source / Author]** — One sentence on why it's relevant this week and where to find it.
 """
 
-
-# ---------------------------------------------------------------------------
-# Public functions
-# ---------------------------------------------------------------------------
 
 def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
     duration_min = episode.get("duration", 0) // 60
@@ -103,12 +92,21 @@ def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
         feedback=feedback,
     )
 
-    response = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.content[0].text
+    for attempt in range(5):
+        try:
+            response = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+        except anthropic.OverloadedError:
+            if attempt < 4:
+                wait = 60 * (attempt + 1)
+                print(f"  API overloaded, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
 
 
 def generate_recommendations(all_summaries: list) -> str:
@@ -127,27 +125,10 @@ def generate_recommendations(all_summaries: list) -> str:
     return response.content[0].text
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _format_date(unix_ts: int) -> str:
     if not unix_ts:
         return "Unknown date"
     try:
         return datetime.utcfromtimestamp(unix_ts).strftime("%B %d, %Y")
-    for attempt in range(5):
-        try:
-            response = client.messages.create(
-                model="claude-opus-4-6",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return response.content[0].text
-        except anthropic.OverloadedError:
-            if attempt < 4:
-                wait = 60 * (attempt + 1)
-                print(f"  API overloaded, retrying in {wait}s...")
-                time.sleep(wait)
-            else:
-                raise
+    except Exception:
+        return "Unknown date"
