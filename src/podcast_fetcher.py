@@ -8,19 +8,21 @@ PODCAST_INDEX_BASE = "https://api.podcastindex.org/api/1.0"
 
 # Your podcast list — search terms tuned for Podcast Index accuracy
 PODCASTS = [
-    {"name": "TBPN", "search": "TBPN podcast"},
-    {"name": "All-In Podcast", "search": "All-In Podcast Chamath Palihapitiya"},
-    {"name": "Invest Like the Best", "search": "Invest Like the Best Patrick O'Shaughnessy"},
+    PODCASTS = [
+    {"name": "TBPN", "search": "TBPN.com"},
+    {"name": "All-In Podcast", "search": "All-In with Chamath Jason Sacks David"},
+    {"name": "Invest Like the Best", "search": "Invest Like the Best"},
     {"name": "Uncapped with Jack Altman", "search": "Uncapped Jack Altman"},
-    {"name": "Cheeky Pint", "search": "Cheeky Pint podcast"},
-    {"name": "Lenny's Podcast", "search": "Lenny's Podcast Product"},
-    {"name": "Dwarkesh Podcast", "search": "Dwarkesh Podcast"},
-    {"name": "Stratechery", "search": "Stratechery Ben Thompson", "free_only": True},
+    {"name": "Cheeky Pint", "search": "Cheeky Pint"},
+    {"name": "Lenny's Podcast", "search": "Lenny Rachitsky Product"},
+    {"name": "Dwarkesh Podcast", "search": "Dwarkesh Patel"},
+    {"name": "Stratechery", "search": "Stratechery Daily Update Ben Thompson", "free_only": True},
     {"name": "Long Strange Trip: CEO to CEO", "search": "Long Strange Trip Brian Halligan"},
-    {"name": "a16z Podcast", "search": "a16z Podcast Andreessen Horowitz"},
-    {"name": "The Riff", "search": "The Riff Turpentine"},
-    {"name": "Turpentine VC", "search": "Turpentine VC"},
-    {"name": "Dalton & Michael", "search": "Dalton Caldwell Michael Seibel Y Combinator"},
+    {"name": "a16z Podcast", "search": "a16z podcast technology culture"},
+    {"name": "The Riff", "search": "The Riff Erik Torenberg Turpentine"},
+    {"name": "Turpentine VC", "search": "Turpentine VC venture capital"},
+    {"name": "Dalton & Michael", "search": "Dalton Caldwell Michael Seibel"},
+],
 ]
 
 
