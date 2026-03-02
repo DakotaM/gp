@@ -6,6 +6,7 @@ Run from the src/ directory: python digest.py
 import json
 import os
 import sys
+import time
 
 # Make sure sibling modules are importable when run directly
 sys.path.insert(0, os.path.dirname(__file__))
