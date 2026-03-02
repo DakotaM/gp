@@ -1,0 +1,46 @@
+name: Weekly Podcast Digest
+
+on:
+  schedule:
+    - cron: '0 10 * * 6'  # Every Saturday at 10:00 AM UTC (adjust to your timezone)
+  workflow_dispatch:       # Lets you trigger manually from GitHub to test
+
+jobs:
+  podcast-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download previous thread timestamp (for feedback loop)
+        uses: actions/download-artifact@v4
+        with:
+          name: slack-thread-ts
+          path: .
+        continue-on-error: true  # First run won't have this — that's fine
+
+      - name: Run digest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          PODCAST_INDEX_API_KEY: ${{ secrets.PODCAST_INDEX_API_KEY }}
+          PODCAST_INDEX_API_SECRET: ${{ secrets.PODCAST_INDEX_API_SECRET }}
+        run: cd src && python digest.py
+
+      - name: Save thread timestamp for next week's feedback read
+        uses: actions/upload-artifact@v4
+        with:
+          name: slack-thread-ts
+          path: thread_ts.json
+          retention-days: 8  # Just over a week
+        if: always()
