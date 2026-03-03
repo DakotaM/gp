@@ -95,7 +95,7 @@ def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
     for attempt in range(5):
         try:
             response = client.messages.create(
-                model="claude-opus-4-6",
+                model="claude-sonnet-4-6",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -118,7 +118,7 @@ def generate_recommendations(all_summaries: list) -> str:
     )
 
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=800,
         messages=[
             {"role": "user", "content": RECOMMENDATIONS_PROMPT.format(themes=themes_block)}
