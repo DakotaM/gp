@@ -71,9 +71,10 @@ def main():
     print(f"  Thread ts: {thread_ts}")
 
     # -------------------------------------------------------------------------
-    # Step 4: Summarize and post each episode — one at a time with pauses
+    # Step 4: Summarize all episodes, collect into one document
     # -------------------------------------------------------------------------
     all_summaries = []
+    full_digest_parts = []
 
     for i, episode in enumerate(episodes):
         label = f"{episode['podcast']} — {episode['title']}"
@@ -81,29 +82,37 @@ def main():
 
         try:
             summary = summarize_episode(episode, feedback=feedback or "None yet.")
-            post_episode_summary(
-                thread_ts=thread_ts,
-                podcast=episode["podcast"],
-                title=episode["title"],
-                summary=summary,
-                link=episode.get("link", ""),
-            )
             all_summaries.append({
                 "podcast": episode["podcast"],
                 "title": episode["title"],
                 "summary": summary,
+                "link": episode.get("link", ""),
             })
-            print(f"  ✓ Posted")
+            full_digest_parts.append(summary)
+            print(f"  ✓ Done")
         except Exception as e:
-            print(f"  ⚠ Failed to summarize — skipping. Error: {e}")
+            print(f"  ⚠ Failed — skipping. Error: {e}")
 
-        # Pause between episodes to stay within rate limits
         if i < len(episodes) - 1:
-            print(f"  Pausing {PAUSE_BETWEEN_EPISODES}s before next episode...")
+            print(f"  Pausing {PAUSE_BETWEEN_EPISODES}s...")
             time.sleep(PAUSE_BETWEEN_EPISODES)
 
     # -------------------------------------------------------------------------
-    # Step 5: Recommendations
+    # Step 5: Post all summaries as one combined document
+    # -------------------------------------------------------------------------
+    print("\n📬 Posting full digest to Slack...")
+    divider = "\n\n" + "─" * 40 + "\n\n"
+    full_digest = divider.join(full_digest_parts)
+    post_episode_summary(
+        thread_ts=thread_ts,
+        podcast="",
+        title="",
+        summary=full_digest,
+        link="",
+    )
+
+    # -------------------------------------------------------------------------
+    # Step 6: Recommendations
     # -------------------------------------------------------------------------
     if all_summaries:
         print("\n💡 Generating recommendations...")
@@ -114,7 +123,7 @@ def main():
             print(f"  ⚠ Recommendations failed: {e}")
 
     # -------------------------------------------------------------------------
-    # Step 6: Feedback prompt
+    # Step 7: Feedback prompt
     # -------------------------------------------------------------------------
     post_feedback_prompt(thread_ts)
 
