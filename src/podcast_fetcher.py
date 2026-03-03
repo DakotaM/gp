@@ -7,24 +7,23 @@ from datetime import datetime, timedelta
 PODCAST_INDEX_BASE = "https://api.podcastindex.org/api/1.0"
 
 PODCASTS = [
-    {"name": "TBPN", "search": "TBPN"},
-    {"name": "All-In Podcast", "search": "All-In with Chamath Jason Sacks David"},
-    {"name": "Invest Like the Best", "search": "Invest Like the Best"},
+    {"name": "TBPN", "search": "TBPN Turpentine Business podcast"},
+    {"name": "All-In Podcast", "search": "All-In Pod Chamath Palihapitiya Jason Calacanis"},
+    {"name": "Invest Like the Best", "search": "Invest Like the Best Patrick O'Shaughnessy"},
     {"name": "Uncapped with Jack Altman", "search": "Uncapped Jack Altman"},
     {"name": "Cheeky Pint", "search": "Cheeky Pint"},
-    {"name": "Lenny's Podcast", "search": "Lenny Rachitsky Product"},
-    {"name": "Dwarkesh Podcast", "search": "Dwarkesh Patel"},
+    {"name": "Lenny's Podcast", "search": "Lenny's Podcast Product Growth"},
+    {"name": "Dwarkesh Podcast", "search": "Dwarkesh Patel Podcast"},
     {"name": "Stratechery", "search": "Stratechery Ben Thompson", "free_only": True},
-    {"name": "Long Strange Trip", "search": "Long Strange Trip Brian Halligan"},
-    {"name": "a16z Podcast", "search": "a16z podcast technology culture"},
-    {"name": "The Riff", "search": "The Riff Erik Torenberg Turpentine"},
-    {"name": "Turpentine VC", "search": "Turpentine VC venture capital"},
-    {"name": "Dalton and Michael", "search": "Dalton Caldwell Michael Seibel"},
+    {"name": "Long Strange Trip", "search": "Long Strange Trip CEO Brian Halligan"},
+    {"name": "a16z Podcast", "search": "a16z Andreessen Horowitz Podcast"},
+    {"name": "The Riff", "search": "The Riff Turpentine Erik Torenberg"},
+    {"name": "Turpentine VC", "search": "Turpentine VC Startup Investing"},
+    {"name": "Dalton and Michael", "search": "Dalton Caldwell Michael Seibel YC"},
 ]
 
 
 def _get_headers():
-    """Build Podcast Index auth headers. Required on every request."""
     api_key = os.environ["PODCAST_INDEX_API_KEY"]
     api_secret = os.environ["PODCAST_INDEX_API_SECRET"]
     epoch_time = int(time.time())
@@ -40,37 +39,38 @@ def _get_headers():
 
 
 def _search_feed_id(search_term):
-    """Return the Podcast Index feed ID for the best match."""
-    resp = requests.get(
-        f"{PODCAST_INDEX_BASE}/search/byterm",
-        params={"q": search_term, "max": 1},
-        headers=_get_headers(),
-        timeout=15,
-    )
-    resp.raise_for_status()
-    feeds = resp.json().get("feeds", [])
-    return feeds[0]["id"] if feeds else None
+    try:
+        resp = requests.get(
+            f"{PODCAST_INDEX_BASE}/search/byterm",
+            params={"q": search_term, "max": 3},
+            headers=_get_headers(),
+            timeout=15,
+        )
+        resp.raise_for_status()
+        feeds = resp.json().get("feeds", [])
+        return feeds[0]["id"] if feeds else None
+    except Exception as e:
+        print(f"  Feed search error: {e}")
+        return None
 
 
 def _get_recent_episodes(feed_id, days=7):
-    """Return episodes published in the last `days` days."""
     since = int((datetime.utcnow() - timedelta(days=days)).timestamp())
-    resp = requests.get(
-        f"{PODCAST_INDEX_BASE}/episodes/byfeedid",
-        params={"id": feed_id, "since": since, "max": 10},
-        headers=_get_headers(),
-        timeout=15,
-    )
-    resp.raise_for_status()
-    return resp.json().get("items", [])
+    try:
+        resp = requests.get(
+            f"{PODCAST_INDEX_BASE}/episodes/byfeedid",
+            params={"id": feed_id, "since": since, "max": 1},
+            headers=_get_headers(),
+            timeout=15,
+        )
+        resp.raise_for_status()
+        return resp.json().get("items", [])
+    except Exception as e:
+        print(f"  Episode fetch error: {e}")
+        return []
 
 
 def _fetch_transcript(episode):
-    """
-    Try to pull a transcript from the episode's transcripts array.
-    Podcast Index surfaces VTT / SRT / plain-text URLs when podcasters publish them.
-    Returns raw text (capped at 60k chars) or None.
-    """
     for t in episode.get("transcripts", []):
         url = t.get("url", "")
         if not url:
@@ -85,11 +85,7 @@ def _fetch_transcript(episode):
 
 
 def fetch_all_episodes():
-    """
-    Main entry point. Returns a list of episode dicts ready for summarization.
-    """
     results = []
-
     for podcast in PODCASTS:
         print(f"→ {podcast['name']}")
         feed_id = _search_feed_id(podcast["search"])
@@ -103,7 +99,6 @@ def fetch_all_episodes():
             continue
 
         for ep in episodes:
-            # For Stratechery, skip paywalled episodes (they have no enclosure or a login URL)
             if podcast.get("free_only"):
                 description = ep.get("description", "").lower()
                 if "members only" in description or "subscriber" in description:
