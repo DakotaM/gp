@@ -93,6 +93,87 @@ def get_thread_replies(thread_ts: str) -> str:
         return ""
 
 
+def post_meeting_summary(summary_text: str, channel_id: str = None) -> str:
+    """
+    Post a meeting summary to a Slack channel.
+    Returns the message timestamp (ts) for threading.
+
+    Args:
+        summary_text: Formatted meeting summary text (supports mrkdwn)
+        channel_id: Optional channel ID override, defaults to CHANNEL_ID env var
+    """
+    target_channel = channel_id or CHANNEL_ID
+
+    # Chunk if needed for long summaries
+    chunks = _chunk_text(summary_text, limit=2900)
+    ts = None
+
+    for i, chunk in enumerate(chunks):
+        if i == 0:
+            # First chunk goes as main message
+            resp = _client.chat_postMessage(
+                channel=target_channel,
+                text=chunk,
+                mrkdwn=True,
+            )
+            ts = resp["ts"]
+        else:
+            # Additional chunks go in thread
+            _client.chat_postMessage(
+                channel=target_channel,
+                thread_ts=ts,
+                text=chunk,
+                mrkdwn=True,
+            )
+
+    return ts
+
+
+def post_meeting_to_channel(
+    meeting_title: str,
+    summary: str,
+    action_items: list = None,
+    channel_id: str = None
+) -> str:
+    """
+    Post a structured meeting summary to Slack with action items.
+
+    Args:
+        meeting_title: Title of the meeting
+        summary: Meeting summary text
+        action_items: List of action item strings or dicts with 'task' and 'owner' keys
+        channel_id: Optional channel ID override
+
+    Returns:
+        The message timestamp (ts)
+    """
+    target_channel = channel_id or CHANNEL_ID
+
+    # Build the message
+    lines = [
+        f":studio_microphone: *Meeting Summary: {meeting_title}*",
+        "",
+        summary,
+    ]
+
+    if action_items:
+        lines.append("")
+        lines.append("*Next Steps:*")
+        for item in action_items:
+            if isinstance(item, dict):
+                task = item.get("task", "")
+                owner = item.get("owner", "")
+                if owner:
+                    lines.append(f"  - {task} (_{owner}_)")
+                else:
+                    lines.append(f"  - {task}")
+            else:
+                lines.append(f"  - {item}")
+
+    full_text = "\n".join(lines)
+    return post_meeting_summary(full_text, channel_id=target_channel)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
