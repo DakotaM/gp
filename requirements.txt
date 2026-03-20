@@ -1,4 +1,4 @@
-anthropic>=0.40.0
+git+https://github.com/mindsdb/anton.git
 slack-sdk>=3.27.0
 requests>=2.31.0
 python-dateutil>=2.9.0

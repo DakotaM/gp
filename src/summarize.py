@@ -1,9 +1,13 @@
-import anthropic
+"""summarize.py — episode summarization via Anton's ChatSession."""
+
+import asyncio
 import os
 import time
 from datetime import datetime
 
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+from anton.chat import ChatSession
+from anton.llm.client import LLMClient
+from anton.config.settings import AntonSettings
 
 EPISODE_PROMPT = """\
 You are writing a weekly podcast digest for a VC fund manager who follows AI, \
@@ -72,6 +76,33 @@ Format each as:
 - **[Title / Source / Author]** — One sentence on why it's relevant this week and where to find it.
 """
 
+# Module-level session singleton — created once per process and reused across
+# all episode summarizations so Anton retains conversation context for the run.
+_event_loop: asyncio.AbstractEventLoop | None = None
+_session: ChatSession | None = None
+
+
+async def _create_session() -> ChatSession:
+    settings = AntonSettings(
+        planning_provider="anthropic",
+        planning_model="claude-sonnet-4-6",
+        coding_provider="anthropic",
+        coding_model="claude-sonnet-4-6",
+        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
+        memory_enabled=False,
+        episodic_memory=False,
+    )
+    llm_client = LLMClient.from_settings(settings)
+    return ChatSession(llm_client=llm_client)
+
+
+def _get_session() -> tuple[asyncio.AbstractEventLoop, ChatSession]:
+    global _event_loop, _session
+    if _event_loop is None or _session is None:
+        _event_loop = asyncio.new_event_loop()
+        _session = _event_loop.run_until_complete(_create_session())
+    return _event_loop, _session
+
 
 def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
     duration_min = episode.get("duration", 0) // 60
@@ -92,14 +123,10 @@ def summarize_episode(episode: dict, feedback: str = "None yet.") -> str:
         feedback=feedback,
     )
 
+    loop, session = _get_session()
     for attempt in range(5):
         try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return response.content[0].text
+            return loop.run_until_complete(session.turn(prompt))
         except Exception as e:
             if "529" not in str(e) and "overloaded" not in str(e).lower():
                 raise
@@ -117,14 +144,10 @@ def generate_recommendations(all_summaries: list) -> str:
         for s in all_summaries
     )
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=800,
-        messages=[
-            {"role": "user", "content": RECOMMENDATIONS_PROMPT.format(themes=themes_block)}
-        ],
+    loop, session = _get_session()
+    return loop.run_until_complete(
+        session.turn(RECOMMENDATIONS_PROMPT.format(themes=themes_block))
     )
-    return response.content[0].text
 
 
 def _format_date(unix_ts: int) -> str:
